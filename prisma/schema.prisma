@@ -1,0 +1,124 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum VehicleCondition {
+  BRAND_NEW
+  FOREIGN_USED
+  LOCAL_USED
+}
+
+enum Transmission {
+  AUTOMATIC
+  MANUAL
+  CVT
+  DUAL_CLUTCH
+}
+
+enum FuelType {
+  PETROL
+  DIESEL
+  HYBRID
+  ELECTRIC
+}
+
+enum Drivetrain {
+  FWD
+  RWD
+  AWD
+  FOUR_WD
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  RESERVED
+  SOLD
+}
+
+enum LeadType {
+  WHATSAPP_CLICK
+  AVAILABILITY_CHECK
+  TEST_DRIVE
+  TRADE_IN
+  IMPORT_REQUEST
+  FINANCING_INQUIRY
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model Vehicle {
+  id               String           @id @default(uuid())
+  slug             String           @unique
+  stockNumber      String           @unique
+  vin              String?
+  make             String
+  model            String
+  year             Int
+  trim             String?
+  bodyStyle        String
+  condition        VehicleCondition @default(FOREIGN_USED)
+  transmission     Transmission     @default(AUTOMATIC)
+  fuelType         FuelType         @default(PETROL)
+  drivetrain       Drivetrain       @default(FOUR_WD)
+  engineSizeCc     Int?
+  mileageKm        Int
+  priceKes         Decimal          @db.Decimal(12, 2)
+  previousPriceKes Decimal?         @db.Decimal(12, 2)
+  exteriorColor    String
+  interiorColor    String?
+  features         String[]
+  description      String           @db.Text
+  status           VehicleStatus    @default(AVAILABLE)
+  featured         Boolean          @default(false)
+  images           VehicleImage[]
+  leads            Lead[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([make, model])
+  @@index([status, priceKes])
+  @@index([bodyStyle])
+}
+
+model VehicleImage {
+  id        String   @id @default(uuid())
+  vehicleId String
+  vehicle   Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  publicId  String
+  url       String
+  order     Int      @default(0)
+  isCover   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([vehicleId])
+}
+
+model Lead {
+  id        String     @id @default(uuid())
+  type      LeadType
+  status    LeadStatus @default(NEW)
+  fullName  String
+  phone     String
+  email     String?
+  message   String?    @db.Text
+  vehicleId String?
+  vehicle   Vehicle?   @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  metadata  Json?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([status])
+  @@index([type])
+}
