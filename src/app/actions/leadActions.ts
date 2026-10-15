@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { LeadStatus, LeadType } from "@prisma/client";
 import { sendLeadAlertEmail } from "@/lib/mail";
 
-interface TestDriveInput {
+export interface TestDriveInput {
   fullName: string;
   phone: string;
   email?: string;
@@ -15,41 +15,68 @@ interface TestDriveInput {
   vehicleId?: string;
 }
 
-export async function submitTestDriveLead(data: TestDriveInput) {
+export async function submitTestDriveLead(input: FormData | TestDriveInput) {
   try {
+    let fullName = "";
+    let phone = "";
+    let email: string | undefined;
+    let preferredDate: string | undefined;
+    let notes: string | undefined;
+    let vehicleId: string | undefined;
+
+    if (input instanceof FormData) {
+      fullName = (input.get("fullName") as string) || "";
+      phone = (input.get("phone") as string) || "";
+      email = (input.get("email") as string) || undefined;
+      preferredDate = (input.get("preferredDate") as string) || undefined;
+      notes = (input.get("notes") as string) || undefined;
+      vehicleId = (input.get("vehicleId") as string) || undefined;
+    } else {
+      fullName = input.fullName;
+      phone = input.phone;
+      email = input.email;
+      preferredDate = input.preferredDate;
+      notes = input.notes;
+      vehicleId = input.vehicleId;
+    }
+
+    if (!fullName || !phone) {
+      return { success: false, error: "Name and phone number are required." };
+    }
+
     const lead = await prisma.lead.create({
       data: {
-        fullName: data.fullName,
-        phone: data.phone,
-        email: data.email || null,
+        fullName,
+        phone,
+        email: email || null,
         message:
-          data.notes ||
-          (data.preferredDate ? `Preferred Date: ${data.preferredDate}` : null),
+          notes || (preferredDate ? `Preferred Date: ${preferredDate}` : null),
         type: LeadType.TEST_DRIVE,
         status: LeadStatus.NEW,
-        vehicleId: data.vehicleId || null,
+        vehicleId: vehicleId || null,
       },
       include: {
         vehicle: true,
       },
     });
 
-    // Send email alert via Resend using sendLeadAlertEmail
+    // Send email alert via Resend
     try {
       await sendLeadAlertEmail({
         customerName: lead.fullName,
-        customerPhone: lead.phone,
         customerEmail: lead.email || undefined,
         inquiryType: "TEST_DRIVE",
         vehicleDetails: lead.vehicle
           ? `${lead.vehicle.year} ${lead.vehicle.make} ${lead.vehicle.model} (${lead.vehicle.stockNumber})`
           : "General Test Drive Inquiry",
-        message:
-          data.notes ||
-          (data.preferredDate
-            ? `Preferred Date: ${data.preferredDate}`
-            : undefined),
-      });
+        message: [
+          `Phone: ${lead.phone}`,
+          preferredDate ? `Preferred Date: ${preferredDate}` : null,
+          notes ? `Notes: ${notes}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      } as any);
     } catch (mailError) {
       console.error("Failed to send Resend email alert:", mailError);
     }
