@@ -1,5 +1,6 @@
 // src/app/admin/leads/page.tsx
 import { prisma } from "@/lib/prisma";
+import { LeadRowActions } from "@/components/LeadRowActions";
 import { MessageSquare, Phone } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ export default async function AdminLeadsPage() {
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white shadow-xs">
         <table className="w-full text-left text-xs">
           <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase text-slate-600">
             <tr>
@@ -30,6 +31,7 @@ export default async function AdminLeadsPage() {
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Associated Vehicle</th>
               <th className="px-4 py-3">Date Received</th>
+              <th className="px-4 py-3">Outcome Status</th>
               <th className="px-4 py-3 text-right">Direct Action</th>
             </tr>
           </thead>
@@ -37,7 +39,7 @@ export default async function AdminLeadsPage() {
             {leads.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   className="px-4 py-8 text-center text-slate-400"
                 >
                   No inquiries received yet. Submit a test drive booking from
@@ -46,7 +48,10 @@ export default async function AdminLeadsPage() {
               </tr>
             ) : (
               leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-slate-50">
+                <tr
+                  key={lead.id}
+                  className="hover:bg-slate-50/80 transition-colors"
+                >
                   <td className="px-4 py-3">
                     <div className="font-bold text-slate-900">
                       {lead.fullName}
@@ -81,6 +86,9 @@ export default async function AdminLeadsPage() {
                   <td className="px-4 py-3 text-slate-500">
                     {new Date(lead.createdAt).toLocaleDateString()}
                   </td>
+                  <td className="px-4 py-3">
+                    <LeadRowActions id={lead.id} initialStatus={lead.status} />
+                  </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
                       <a
@@ -88,12 +96,14 @@ export default async function AdminLeadsPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded bg-emerald-50 p-1.5 text-emerald-600 hover:bg-emerald-100 transition"
+                        title="Chat on WhatsApp"
                       >
                         <MessageSquare className="h-4 w-4" />
                       </a>
                       <a
                         href={`tel:${lead.phone}`}
                         className="rounded bg-slate-100 p-1.5 text-slate-700 hover:bg-slate-200 transition"
+                        title="Call Customer"
                       >
                         <Phone className="h-4 w-4" />
                       </a>

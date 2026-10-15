@@ -10,7 +10,12 @@ interface VehicleWithImages extends Vehicle {
   images: VehicleImage[];
 }
 
-export function VehicleCard({ vehicle }: { vehicle: VehicleWithImages }) {
+interface VehicleCardProps {
+  vehicle: VehicleWithImages;
+  index?: number;
+}
+
+export function VehicleCard({ vehicle, index = 0 }: VehicleCardProps) {
   const coverImage =
     vehicle.images.find((img) => img.isCover)?.url ||
     vehicle.images[0]?.url ||
@@ -26,16 +31,18 @@ export function VehicleCard({ vehicle }: { vehicle: VehicleWithImages }) {
   const waMessage = `Hello Julius, I am interested in the ${vehicle.year} ${vehicle.make} ${vehicle.model} (Stock: ${vehicle.stockNumber}) listed for ${formatPriceKes(Number(vehicle.priceKes))}. Is it available?`;
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-slate-300 hover:shadow-sm">
+    <div className="group flex flex-col overflow-hidden rounded-md border border-slate-200 bg-white transition hover:border-slate-300 hover:shadow-xs">
       {/* Vehicle Image Container */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
         <Image
           src={coverImage}
           alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
           fill
-          className="object-cover transition duration-300 group-hover:scale-105"
+          priority={index < 2}
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
+
         <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="rounded bg-[#0B0D10]/80 px-2.5 py-1 text-[11px] font-semibold text-white uppercase backdrop-blur-xs">
             {conditionLabel}

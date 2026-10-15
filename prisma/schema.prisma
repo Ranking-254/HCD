@@ -53,9 +53,8 @@ enum LeadType {
 enum LeadStatus {
   NEW
   CONTACTED
-  QUALIFIED
-  CLOSED_WON
-  CLOSED_LOST
+  WON      // Sale closed / Success
+  LOST     // Not interested / Unsuccessful
 }
 
 model Vehicle {
@@ -107,7 +106,7 @@ model VehicleImage {
 
 model Lead {
   id        String     @id @default(uuid())
-  type      LeadType
+  type      LeadType   @default(TEST_DRIVE)
   status    LeadStatus @default(NEW)
   fullName  String
   phone     String

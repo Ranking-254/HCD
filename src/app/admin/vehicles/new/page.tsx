@@ -35,7 +35,7 @@ export default function NewVehiclePage() {
           }}
           className="mt-6 space-y-5 text-xs"
         >
-          {/* Hidden inputs transmitting the uploaded Cloudinary URLs */}
+          {/* Hidden inputs transmitting Cloudinary URLs */}
           <input type="hidden" name="coverImageUrl" value={images[0] || ""} />
           <input
             type="hidden"
@@ -45,10 +45,20 @@ export default function NewVehiclePage() {
 
           {/* Photo Dropzone Uploader */}
           <div className="space-y-2">
-            <label className="font-bold uppercase text-slate-700">
-              Vehicle Photos (First photo will be the main cover) *
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="font-bold uppercase text-slate-700">
+                Vehicle Photos *
+              </label>
+              {images.length > 0 && (
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {images.length} {images.length === 1 ? "photo" : "photos"}{" "}
+                  selected
+                </span>
+              )}
+            </div>
+
             <ImageDropzone images={images} onChange={setImages} />
+
             {images.length === 0 && (
               <p className="text-[11px] text-amber-600 font-medium">
                 * Please upload at least one cover photo for the vehicle

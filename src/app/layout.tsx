@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+import { PublicShell } from "@/components/PublicShell";
 import { siteConfig } from "@/config/siteConfig";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -21,13 +20,11 @@ export default function RootLayout({
 }>) {
   return (
     <ClerkProvider>
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
         <body
-          className={`${inter.className} min-h-screen flex flex-col bg-[#F8FAFC]`}
+          className={`${inter.className} min-h-screen w-full overflow-x-hidden flex flex-col bg-[#F8FAFC]`}
         >
-          <Navbar />
-          <main className="flex-1">{children}</main>
-          <Footer />
+          <PublicShell>{children}</PublicShell>
         </body>
       </html>
     </ClerkProvider>

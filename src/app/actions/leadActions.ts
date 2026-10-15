@@ -2,71 +2,86 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
-import { LeadType } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { LeadStatus, LeadType } from "@prisma/client";
 import { sendLeadAlertEmail } from "@/lib/mail";
 
-const leadSchema = z.object({
-  fullName: z.string().min(2, "Name is required"),
-  phone: z.string().min(9, "Valid phone number required"),
-  email: z.string().email().optional().or(z.literal("")).nullable(),
-  vehicleId: z.string().optional().nullable(),
-  date: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-});
+interface TestDriveInput {
+  fullName: string;
+  phone: string;
+  email?: string;
+  preferredDate?: string;
+  notes?: string;
+  vehicleId?: string;
+}
 
-export async function submitTestDriveLead(formData: FormData) {
-  const rawData = {
-    fullName: formData.get("fullName") as string,
-    phone: formData.get("phone") as string,
-    email: (formData.get("email") as string) || null,
-    vehicleId: (formData.get("vehicleId") as string) || null,
-    date: (formData.get("date") as string) || null,
-    notes: (formData.get("notes") as string) || null,
-  };
-
-  const parsed = leadSchema.safeParse(rawData);
-  if (!parsed.success) {
-    return { success: false, error: "Please verify all required fields." };
-  }
-
+export async function submitTestDriveLead(data: TestDriveInput) {
   try {
     const lead = await prisma.lead.create({
       data: {
+        fullName: data.fullName,
+        phone: data.phone,
+        email: data.email || null,
+        message:
+          data.notes ||
+          (data.preferredDate ? `Preferred Date: ${data.preferredDate}` : null),
         type: LeadType.TEST_DRIVE,
-        fullName: parsed.data.fullName,
-        phone: parsed.data.phone,
-        email: parsed.data.email || null,
-        vehicleId: parsed.data.vehicleId || null,
-        message: parsed.data.notes || "Requested showroom test drive",
-        metadata: {
-          preferredDate: parsed.data.date || null,
-        },
+        status: LeadStatus.NEW,
+        vehicleId: data.vehicleId || null,
       },
       include: {
         vehicle: true,
       },
     });
 
-    // Send async email notification
-    await sendLeadAlertEmail({
-      customerName: lead.fullName,
-      phone: lead.phone,
-      email: lead.email,
-      vehicleTitle: lead.vehicle
-        ? `${lead.vehicle.year} ${lead.vehicle.make} ${lead.vehicle.model}`
-        : undefined,
-      preferredDate: parsed.data.date || undefined,
-      notes: parsed.data.notes || undefined,
-    });
+    // Send email alert via Resend using sendLeadAlertEmail
+    try {
+      await sendLeadAlertEmail({
+        customerName: lead.fullName,
+        customerPhone: lead.phone,
+        customerEmail: lead.email || undefined,
+        inquiryType: "TEST_DRIVE",
+        vehicleDetails: lead.vehicle
+          ? `${lead.vehicle.year} ${lead.vehicle.make} ${lead.vehicle.model} (${lead.vehicle.stockNumber})`
+          : "General Test Drive Inquiry",
+        message:
+          data.notes ||
+          (data.preferredDate
+            ? `Preferred Date: ${data.preferredDate}`
+            : undefined),
+      });
+    } catch (mailError) {
+      console.error("Failed to send Resend email alert:", mailError);
+    }
 
-    return { success: true };
-  } catch (error) {
-    console.error("Failed to save lead:", error);
+    revalidatePath("/admin/leads");
+    revalidatePath("/admin");
+
+    return { success: true, leadId: lead.id };
+  } catch (error: any) {
+    console.error("Failed to submit test drive lead:", error);
     return {
       success: false,
-      error:
-        "Unable to submit booking. Please contact us directly via WhatsApp.",
+      error: error?.message || "Failed to submit booking",
     };
   }
+}
+
+export async function updateLeadStatus(id: string, status: LeadStatus) {
+  await prisma.lead.update({
+    where: { id },
+    data: { status },
+  });
+
+  revalidatePath("/admin/leads");
+  revalidatePath("/admin");
+}
+
+export async function deleteLead(id: string) {
+  await prisma.lead.delete({
+    where: { id },
+  });
+
+  revalidatePath("/admin/leads");
+  revalidatePath("/admin");
 }
