@@ -2,44 +2,113 @@
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { formatPriceKes } from "@/lib/utils";
+import { VehicleStatus } from "@prisma/client";
+import { Plus, Edit, ExternalLink, Trash2 } from "lucide-react";
+// Import your status update action or component if you have one
 import {
   updateVehicleStatus,
   deleteVehicle,
 } from "@/app/actions/adminVehicleActions";
-import { Plus, Trash2, ExternalLink, Pencil } from "lucide-react";
-import { VehicleStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminVehiclesPage() {
-  const vehicles = await prisma.vehicle.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { images: true },
-  });
+interface AdminVehiclesPageProps {
+  searchParams: Promise<{ status?: string }>;
+}
+
+export default async function AdminVehiclesPage({
+  searchParams,
+}: AdminVehiclesPageProps) {
+  const resolvedParams = await searchParams;
+  const currentStatus = resolvedParams.status as VehicleStatus | undefined;
+
+  // 1. Fetch counts in parallel for fast stats
+  const [totalCount, availableCount, reservedCount, soldCount, vehicles] =
+    await Promise.all([
+      prisma.vehicle.count(),
+      prisma.vehicle.count({ where: { status: "AVAILABLE" } }),
+      prisma.vehicle.count({ where: { status: "RESERVED" } }),
+      prisma.vehicle.count({ where: { status: "SOLD" } }),
+      prisma.vehicle.findMany({
+        where: currentStatus ? { status: currentStatus } : undefined,
+        orderBy: { createdAt: "desc" },
+        include: { images: true },
+      }),
+    ]);
+
+  const filterTabs = [
+    { label: "All Stock", value: undefined, count: totalCount },
+    { label: "Available", value: "AVAILABLE", count: availableCount },
+    { label: "Reserved", value: "RESERVED", count: reservedCount },
+    { label: "Sold", value: "SOLD", count: soldCount },
+  ];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center border-b border-slate-200 pb-5">
+      {/* Top Header & Action */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 pb-5">
         <div>
-          <h1 className="text-xl sm:text-2xl font-black uppercase text-slate-900 tracking-tight">
-            Inventory Management
-          </h1>
-          <p className="text-xs text-slate-500">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl sm:text-2xl font-black uppercase text-slate-900 tracking-tight">
+              Inventory Management
+            </h1>
+            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+              {totalCount} Units Total
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
             Control vehicle availability status, edit details, and manage
             listings.
           </p>
         </div>
+
         <Link
           href="/admin/vehicles/new"
-          className="inline-flex items-center gap-1.5 rounded-md bg-[#0B4FD8] px-4 py-2 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-[#003296]"
+          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-[#0B4FD8] px-4 py-2.5 text-xs font-bold text-white uppercase tracking-wider hover:bg-[#003296] transition shrink-0"
         >
           <Plus className="h-4 w-4" />
           <span>Add New Vehicle</span>
         </Link>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-        <table className="w-full text-left text-xs">
+      {/* Filter Tabs & Stock Counter Badges */}
+      <div className="flex flex-wrap gap-2">
+        {filterTabs.map((tab) => {
+          const isActive =
+            tab.value === currentStatus || (!tab.value && !currentStatus);
+
+          return (
+            <Link
+              key={tab.label}
+              href={
+                tab.value
+                  ? `/admin/vehicles?status=${tab.value}`
+                  : "/admin/vehicles"
+              }
+              className={`inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-xs font-bold transition ${
+                isActive
+                  ? "bg-slate-900 text-white shadow-xs"
+                  : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              <span>{tab.label}</span>
+              <span
+                className={`rounded-full px-2 py-0.2 text-[10px] ${
+                  isActive
+                    ? "bg-slate-700 text-white"
+                    : "bg-slate-100 text-slate-600"
+                }`}
+              >
+                {tab.count}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Vehicles Table */}
+      <div className="w-full max-w-full overflow-x-auto rounded-md border border-slate-200 bg-white shadow-xs">
+        <table className="w-full min-w-[750px] text-left text-xs">
           <thead className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase text-slate-600">
             <tr>
               <th className="px-4 py-3">Stock No</th>
@@ -51,85 +120,104 @@ export default async function AdminVehiclesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-slate-700">
-            {vehicles.map((v) => (
-              <tr key={v.id} className="hover:bg-slate-50">
-                <td className="px-4 py-3 font-mono font-bold text-slate-900">
-                  {v.stockNumber}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="font-bold text-slate-900">
-                    {v.year} {v.make} {v.model}
-                  </div>
-                  <div className="text-[11px] text-slate-400">
-                    {v.trim || v.bodyStyle}
-                  </div>
-                </td>
-                <td className="px-4 py-3 font-semibold text-slate-900">
-                  {formatPriceKes(Number(v.priceKes))}
-                </td>
-                <td className="px-4 py-3">{v.mileageKm.toLocaleString()} km</td>
-                <td className="px-4 py-3">
-                  <form
-                    action={async (formData: FormData) => {
-                      "use server";
-                      const newStatus = formData.get("status") as VehicleStatus;
-                      await updateVehicleStatus(v.id, newStatus);
-                    }}
-                  >
-                    <select
-                      name="status"
-                      defaultValue={v.status}
-                      aria-label="Vehicle Status"
-                      className="rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold uppercase text-slate-700 outline-none"
-                    >
-                      <option value="AVAILABLE">AVAILABLE</option>
-                      <option value="RESERVED">RESERVED</option>
-                      <option value="SOLD">SOLD</option>
-                    </select>
-                    <button
-                      type="submit"
-                      className="ml-2 rounded bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-600 uppercase hover:bg-slate-200"
-                    >
-                      Update
-                    </button>
-                  </form>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    <Link
-                      href={`/admin/vehicles/${v.id}/edit`}
-                      title="Edit Vehicle"
-                      className="text-slate-400 hover:text-[#0B4FD8] transition"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Link>
-                    <Link
-                      href={`/inventory/${v.slug}`}
-                      target="_blank"
-                      title="View Public Page"
-                      className="text-slate-400 hover:text-slate-800 transition"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </Link>
-                    <form
-                      action={async () => {
-                        "use server";
-                        await deleteVehicle(v.id);
-                      }}
-                    >
-                      <button
-                        type="submit"
-                        aria-label="Delete Vehicle"
-                        title="Delete Vehicle"
-                        className="text-slate-400 hover:text-red-600 transition"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </form>
-                  </div>
+            {vehicles.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-4 py-10 text-center text-slate-400"
+                >
+                  No vehicles found under this filter.
                 </td>
               </tr>
-            ))}
+            ) : (
+              vehicles.map((vehicle) => (
+                <tr
+                  key={vehicle.id}
+                  className="hover:bg-slate-50/80 transition-colors"
+                >
+                  <td className="px-4 py-3 font-mono font-bold text-slate-900">
+                    {vehicle.stockNumber}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-bold text-slate-900">
+                      {vehicle.year} {vehicle.make} {vehicle.model}
+                    </div>
+                    {vehicle.trim && (
+                      <div className="text-[11px] text-slate-400">
+                        {vehicle.trim}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-bold text-slate-900">
+                    {formatPriceKes(Number(vehicle.priceKes))}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {vehicle.mileageKm.toLocaleString()} km
+                  </td>
+                  <td className="px-4 py-3">
+                    <form
+                      action={async (formData) => {
+                        "use server";
+                        const nextStatus = formData.get(
+                          "status",
+                        ) as VehicleStatus;
+                        await updateVehicleStatus(vehicle.id, nextStatus);
+                      }}
+                      className="flex items-center gap-1.5"
+                    >
+                      <select
+                        name="status"
+                        defaultValue={vehicle.status}
+                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold uppercase text-slate-700 outline-none focus:border-[#0B4FD8]"
+                      >
+                        <option value="AVAILABLE">Available</option>
+                        <option value="RESERVED">Reserved</option>
+                        <option value="SOLD">Sold</option>
+                      </select>
+                      <button
+                        type="submit"
+                        className="rounded bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase text-slate-600 hover:bg-slate-200 transition"
+                      >
+                        Update
+                      </button>
+                    </form>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Link
+                        href={`/admin/vehicles/${vehicle.id}/edit`}
+                        className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                        title="Edit Vehicle"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Link>
+                      <Link
+                        href={`/inventory/${vehicle.slug}`}
+                        target="_blank"
+                        className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-[#0B4FD8] transition"
+                        title="View Public Page"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Link>
+                      <form
+                        action={async () => {
+                          "use server";
+                          await deleteVehicle(vehicle.id);
+                        }}
+                      >
+                        <button
+                          type="submit"
+                          className="rounded p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition"
+                          title="Delete Vehicle"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

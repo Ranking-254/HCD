@@ -5,7 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { LeadStatus, LeadType } from "@prisma/client";
 import { sendLeadAlertEmail } from "@/lib/mail";
-
+import { requireAdmin } from "@/lib/authGuard";
+// Inside src/app/actions/leadActions.ts
 export interface TestDriveInput {
   fullName: string;
   phone: string;
@@ -13,6 +14,7 @@ export interface TestDriveInput {
   preferredDate?: string;
   notes?: string;
   vehicleId?: string;
+  companyWebsite?: string;
 }
 
 export async function submitTestDriveLead(input: FormData | TestDriveInput) {
@@ -23,8 +25,10 @@ export async function submitTestDriveLead(input: FormData | TestDriveInput) {
     let preferredDate: string | undefined;
     let notes: string | undefined;
     let vehicleId: string | undefined;
+    let honeypot: string | undefined;
 
     if (input instanceof FormData) {
+      honeypot = (input.get("companyWebsite") as string) || undefined;
       fullName = (input.get("fullName") as string) || "";
       phone = (input.get("phone") as string) || "";
       email = (input.get("email") as string) || undefined;
@@ -32,12 +36,19 @@ export async function submitTestDriveLead(input: FormData | TestDriveInput) {
       notes = (input.get("notes") as string) || undefined;
       vehicleId = (input.get("vehicleId") as string) || undefined;
     } else {
+      honeypot = input.companyWebsite;
       fullName = input.fullName;
       phone = input.phone;
       email = input.email;
       preferredDate = input.preferredDate;
       notes = input.notes;
       vehicleId = input.vehicleId;
+    }
+
+    // HONEYPOT TRAP: If a bot filled the hidden input, pretend success and exit silently
+    if (honeypot && honeypot.trim().length > 0) {
+      console.warn("Spam bot submission blocked by honeypot field.");
+      return { success: true, leadId: "discarded-spam" };
     }
 
     if (!fullName || !phone) {
@@ -94,7 +105,10 @@ export async function submitTestDriveLead(input: FormData | TestDriveInput) {
   }
 }
 
+// RESTRICTED: Changing lead workflow status requires dealership admin privileges
 export async function updateLeadStatus(id: string, status: LeadStatus) {
+  await requireAdmin();
+
   await prisma.lead.update({
     where: { id },
     data: { status },
@@ -104,7 +118,10 @@ export async function updateLeadStatus(id: string, status: LeadStatus) {
   revalidatePath("/admin");
 }
 
+// RESTRICTED: Deleting leads requires dealership admin privileges
 export async function deleteLead(id: string) {
+  await requireAdmin();
+
   await prisma.lead.delete({
     where: { id },
   });

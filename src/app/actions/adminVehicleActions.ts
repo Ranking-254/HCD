@@ -4,6 +4,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { requireAdmin } from "@/lib/authGuard";
 import {
   VehicleCondition,
   Transmission,
@@ -13,6 +14,9 @@ import {
 } from "@prisma/client";
 
 export async function createVehicle(formData: FormData) {
+  // Security guard check
+  await requireAdmin();
+
   const make = formData.get("make") as string;
   const model = formData.get("model") as string;
   const year = parseInt(formData.get("year") as string);
@@ -100,6 +104,9 @@ export async function createVehicle(formData: FormData) {
 }
 
 export async function updateVehicle(id: string, formData: FormData) {
+  // Security guard check
+  await requireAdmin();
+
   const make = formData.get("make") as string;
   const model = formData.get("model") as string;
   const year = parseInt(formData.get("year") as string);
@@ -195,6 +202,9 @@ export async function updateVehicle(id: string, formData: FormData) {
 }
 
 export async function updateVehicleStatus(id: string, status: VehicleStatus) {
+  // Security guard check
+  await requireAdmin();
+
   await prisma.vehicle.update({
     where: { id },
     data: { status },
@@ -206,6 +216,9 @@ export async function updateVehicleStatus(id: string, status: VehicleStatus) {
 }
 
 export async function deleteVehicle(id: string) {
+  // Security guard check
+  await requireAdmin();
+
   await prisma.vehicle.delete({
     where: { id },
   });

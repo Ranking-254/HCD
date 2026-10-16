@@ -92,6 +92,21 @@ export function TestDriveModal({
                   </div>
                 )}
 
+                {/* Honeypot Spam Trap: Hidden from users, filled by bots */}
+                <div
+                  className="opacity-0 absolute -left-[9999px] h-0 w-0 overflow-hidden pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <label htmlFor="companyWebsite">Leave empty</label>
+                  <input
+                    type="text"
+                    id="companyWebsite"
+                    name="companyWebsite"
+                    tabIndex={-1}
+                    autoComplete="off"
+                  />
+                </div>
+
                 <div>
                   <label className="text-[11px] font-bold uppercase text-slate-700">
                     Full Name *
@@ -136,7 +151,7 @@ export function TestDriveModal({
                   </label>
                   <input
                     type="datetime-local"
-                    name="date"
+                    name="preferredDate"
                     className="mt-1 w-full rounded border border-slate-200 p-2 text-xs outline-none focus:border-[#0B4FD8]"
                   />
                 </div>

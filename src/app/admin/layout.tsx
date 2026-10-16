@@ -1,13 +1,31 @@
-// Inside src/app/admin/layout.tsx
+// src/app/admin/layout.tsx
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import { notFound } from "next/navigation";
 import { LayoutDashboard, Car, Users, Globe } from "lucide-react";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { userId, sessionClaims } = await auth();
+
+  // 1. Unauthenticated visitors see standard 404
+  if (!userId) {
+    notFound();
+  }
+
+  // 2. Validate admin role or owner email
+  const role = (sessionClaims?.metadata as { role?: string })?.role;
+  const email = sessionClaims?.email as string | undefined;
+  const isOwner = email === "pattinnjue@gmail.com";
+
+  if (role !== "admin" && !isOwner) {
+    notFound();
+  }
+
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-slate-50 text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
