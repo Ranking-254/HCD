@@ -21,14 +21,17 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Ensure production fallback points to your real domain (hcd-motors.vercel.app)
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://hcd-motors.vercel.app";
+
 // Resizes Cloudinary images to standard 1200x630 JPEG to stay well under WhatsApp's 300KB limit
 function getOptimizedThumbnail(imageUrl: string | undefined): string {
-  if (!imageUrl)
-    return "https://honorable-car-dealers.vercel.app/og-default.jpg";
+  if (!imageUrl) return `${SITE_URL}/og-default.jpg`;
   if (imageUrl.includes("cloudinary.com")) {
     return imageUrl.replace(
       "/upload/",
-      "/upload/w_1200,h_630,c_fill,q_auto,f_jpg/",
+      "/upload/c_fill,w_1200,h_630,g_auto,q_80,f_jpg/",
     );
   }
   return imageUrl;
@@ -51,33 +54,35 @@ export async function generateMetadata({
   const coverImage =
     vehicle.images.find((img) => img.isCover)?.url || vehicle.images[0]?.url;
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://honorable-car-dealers.vercel.app";
+  const ogImageUrl = getOptimizedThumbnail(coverImage);
 
   return {
+    metadataBase: new URL(SITE_URL),
     title,
     description,
     openGraph: {
       title,
       description,
-      url: `${siteUrl}/inventory/${vehicle.slug}`,
+      url: `${SITE_URL}/inventory/${vehicle.slug}`,
       siteName: siteConfig.name,
+      locale: "en_KE",
+      type: "website",
       images: [
         {
-          url: getOptimizedThumbnail(coverImage),
+          url: ogImageUrl,
+          secureUrl: ogImageUrl,
           width: 1200,
           height: 630,
+          type: "image/jpeg",
           alt: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
         },
       ],
-      type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [getOptimizedThumbnail(coverImage)],
+      images: [ogImageUrl],
     },
   };
 }
@@ -332,6 +337,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     stockNumber={vehicle.stockNumber}
                     variant="button"
                   />
+
                   <a
                     href={`tel:${siteConfig.phone.replace(/\s+/g, "")}`}
                     className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-800 transition hover:bg-slate-50"
