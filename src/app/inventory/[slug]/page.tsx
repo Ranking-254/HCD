@@ -6,6 +6,7 @@ import { siteConfig } from "@/config/siteConfig";
 import { VehicleGallery } from "@/components/VehicleGallery";
 import { PaymentCalculator } from "@/components/PaymentCalculator";
 import { TestDriveModal } from "@/components/TestDriveModal";
+import { WhatsAppShareButton } from "@/components/WhatsAppShareButton";
 import {
   MessageSquare,
   Phone,
@@ -20,19 +21,64 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Resizes Cloudinary images to standard 1200x630 JPEG to stay well under WhatsApp's 300KB limit
+function getOptimizedThumbnail(imageUrl: string | undefined): string {
+  if (!imageUrl)
+    return "https://honorable-car-dealers.vercel.app/og-default.jpg";
+  if (imageUrl.includes("cloudinary.com")) {
+    return imageUrl.replace(
+      "/upload/",
+      "/upload/w_1200,h_630,c_fill,q_auto,f_jpg/",
+    );
+  }
+  return imageUrl;
+}
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const vehicle = await prisma.vehicle.findUnique({
     where: { slug },
+    include: { images: { orderBy: { order: "asc" } } },
   });
 
   if (!vehicle) return { title: "Vehicle Not Found" };
 
+  const title = `${vehicle.year} ${vehicle.make} ${vehicle.model} for Sale | ${siteConfig.name}`;
+  const description = `${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.trim || ""}). ${vehicle.mileageKm.toLocaleString()} km, ${vehicle.fuelType}, ${vehicle.transmission}. Price: ${formatPriceKes(Number(vehicle.priceKes))}.`;
+
+  const coverImage =
+    vehicle.images.find((img) => img.isCover)?.url || vehicle.images[0]?.url;
+
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://honorable-car-dealers.vercel.app";
+
   return {
-    title: `${vehicle.year} ${vehicle.make} ${vehicle.model} for Sale | ${siteConfig.name}`,
-    description: `${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.trim || ""}). ${vehicle.mileageKm.toLocaleString()} km, ${vehicle.fuelType}, ${vehicle.transmission}. Price: ${formatPriceKes(Number(vehicle.priceKes))}.`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${siteUrl}/inventory/${vehicle.slug}`,
+      siteName: siteConfig.name,
+      images: [
+        {
+          url: getOptimizedThumbnail(coverImage),
+          width: 1200,
+          height: 630,
+          alt: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
+        },
+      ],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [getOptimizedThumbnail(coverImage)],
+    },
   };
 }
 
@@ -275,6 +321,17 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     <span>Inquire on WhatsApp</span>
                   </a>
 
+                  {/* WhatsApp Broadcast / Share Button */}
+                  <WhatsAppShareButton
+                    year={vehicle.year}
+                    make={vehicle.make}
+                    model={vehicle.model}
+                    trim={vehicle.trim}
+                    slug={vehicle.slug}
+                    priceKes={Number(vehicle.priceKes)}
+                    stockNumber={vehicle.stockNumber}
+                    variant="button"
+                  />
                   <a
                     href={`tel:${siteConfig.phone.replace(/\s+/g, "")}`}
                     className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-200 bg-white py-3 text-xs font-bold uppercase tracking-wider text-slate-800 transition hover:bg-slate-50"

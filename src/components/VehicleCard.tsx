@@ -5,6 +5,7 @@ import { formatPriceKes } from "@/lib/utils";
 import { siteConfig } from "@/config/siteConfig";
 import { Gauge, Fuel, Cog, MessageSquare, ArrowRight } from "lucide-react";
 import type { Vehicle, VehicleImage } from "@prisma/client";
+import { WhatsAppShareButton } from "@/components/WhatsAppShareButton";
 
 interface VehicleWithImages extends Vehicle {
   images: VehicleImage[];
@@ -43,6 +44,7 @@ export function VehicleCard({ vehicle, index = 0 }: VehicleCardProps) {
           className="object-cover transition-transform duration-300 group-hover:scale-105"
         />
 
+        {/* Badges on Top Left */}
         <div className="absolute top-3 left-3 flex gap-1.5">
           <span className="rounded bg-[#0B0D10]/80 px-2.5 py-1 text-[11px] font-semibold text-white uppercase backdrop-blur-xs">
             {conditionLabel}
@@ -52,6 +54,21 @@ export function VehicleCard({ vehicle, index = 0 }: VehicleCardProps) {
               Featured
             </span>
           )}
+        </div>
+
+        {/* Floating Share Button on Top Right */}
+        {/* Floating Share Button on Top Right */}
+        <div className="absolute top-3 right-3 z-10">
+          <WhatsAppShareButton
+            year={vehicle.year}
+            make={vehicle.make}
+            model={vehicle.model}
+            trim={vehicle.trim}
+            slug={vehicle.slug}
+            priceKes={Number(vehicle.priceKes)}
+            stockNumber={vehicle.stockNumber}
+            variant="floating"
+          />
         </div>
       </div>
 
