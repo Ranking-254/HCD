@@ -30,46 +30,47 @@ export function WhatsAppShareButton({
     e.preventDefault();
     e.stopPropagation();
 
-    // Use live domain even in local dev so WhatsApp crawler can reach the image
-    const productionDomain = "https://hcd-motors.vercel.app/";
+    const productionDomain = "https://hcd-motors.vercel.app";
     const isLocal =
       typeof window !== "undefined" &&
       (window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1");
 
     const baseUrl = isLocal ? productionDomain : window.location.origin;
-
     const carUrl = `${baseUrl}/inventory/${slug}`;
+
     const formattedPrice = formatPriceKes(priceKes);
     const vehicleTitle = `${year} ${make} ${model}${trim ? ` ${trim}` : ""}`;
 
-    const messageText = [
+    // Clean body text without the URL
+    const pitchBody = [
       `🚗 *${vehicleTitle}*`,
       `💰 *Price:* ${formattedPrice}`,
       `📌 *Stock No:* ${stockNumber}`,
       `📍 *Honorable Car Dealers*`,
       ``,
       `View photos, full specifications & book a test drive:`,
-      carUrl,
     ].join("\n");
 
-    // Native Mobile Share (Enables sharing directly to WhatsApp Status on mobile)
+    // Native Mobile Share (Android/iOS)
+    // Mobile OS automatically appends `url` to the end of `text`.
     if (typeof navigator !== "undefined" && navigator.share) {
       try {
         await navigator.share({
-          title: `${vehicleTitle} | Honorable Car Dealers`,
-          text: messageText,
-          url: carUrl,
+          title: vehicleTitle,
+          text: pitchBody,
+          url: carUrl, // OS appends this ONCE at the end
         });
         return;
       } catch (err) {
-        // Fall back to direct WhatsApp link if user cancelled or system failed
+        // Fall through to desktop web link if dismissed
       }
     }
 
-    // Desktop WhatsApp fallback
+    // Desktop WhatsApp fallback (manually append URL since there is no native handler)
+    const desktopMessage = `${pitchBody}\n${carUrl}`;
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-      messageText,
+      desktopMessage,
     )}`;
     window.open(whatsappUrl, "_blank");
   };
@@ -99,3 +100,5 @@ export function WhatsAppShareButton({
     </button>
   );
 }
+
+export default WhatsAppShareButton;
